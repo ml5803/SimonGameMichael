@@ -7,156 +7,151 @@ import gui.components.Action;
 import gui.components.TextLabel;
 import gui.components.Visible;
 import gui.screens.ClickableScreen;
+import simonMichael.ButtonInterfaceMichael;
+import simonMichael.MoveInterfaceMichael;
+import simonMichael.ProgressInterfaceMichael;
+import simonMichael.SimonScreenMichael;
 
-public class SimonScreenMichael extends ClickableScreen implements Runnable {
+public class SimonScreenMichael extends ClickableScreen implements Runnable{
 
-	private TextLabel text;
-	private ButtonInterfaceMichael[] btnList;
+	private TextLabel label;
+	private ButtonInterfaceMichael[] buttons;
 	private ProgressInterfaceMichael progress;
-	private ArrayList<MoveInterfaceMichael> moveList;
-
+	private ArrayList<MoveInterfaceMichael> moveList; 
 	private int roundNumber;
 	private boolean acceptingInput;
 	private int sequenceIndex;
-	private int lastSelectedButton;
+	private int lastButtonSelect;
 
 	public SimonScreenMichael(int width, int height) {
 		super(width, height);
-		Thread app = new Thread(this);
-		app.start();
-	}
-
-	@Override
-	public void run() {
-		text.setText("");
-	    nextRound();
-	    progress.setRoundInt(roundNumber);
-	    progress.setSequenceSize(moveList.size());
-	    changeText("Simon's turn");
-	    text.setText("");
-	    playSequence();
-	    changeText("Your turn");
-	    sequenceIndex = 0;
-	    acceptingInput=true;
-	}
-
-	private void playSequence() {
-		ButtonInterfaceMichael b = null;
-		for(int i = 0; i< moveList.size(); i++){
-			if(b!=null){
-				b.dim();
-				b.getButton();
-				b.highlight();
-				
-				try {
-					Thread.sleep(1500/(200*roundNumber+1500));
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
-			}
-		}
-		b.dim();
-	}
-
-	private void changeText(String string) {
-		text.setText(string);
-		
-		try {
-			Thread.sleep(1000);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
-	}
-
-	private void nextRound() {
-		acceptingInput = false;
-		roundNumber++;
-		moveList.add(randomMove());
-	}
-
-	@Override
-	public void initAllObjects(ArrayList<Visible> list) {
-		addButtons();
-		progress = getProgress();
-		text = new TextLabel(130,230,300,40,"Let's play Simon!");
-		moveList = new ArrayList<MoveInterfaceMichael>();
-		//add 2 moves to start
-		lastSelectedButton = -1;
-		moveList.add(randomMove());
-		moveList.add(randomMove());
+		Thread screen = new Thread(this);
+		screen.start();
 		roundNumber = 0;
-		viewObjects.add(progress);
-		viewObjects.add(text);
-
 	}
 
-	private MoveInterfaceMichael randomMove() {
-		ButtonInterfaceMichael b;
-		int rand = -1;
-		while (rand == lastSelectedButton || rand == -1){
-			rand = (int) (Math.random() * btnList.length);
-		}
-		b = btnList[rand];
-
-		return getMove(b);
-	}
-
-
-	/**
-	Placeholder until partner finishes implementation of MoveInterface
-	 */
-	private MoveInterfaceMichael getMove(ButtonInterfaceMichael b) {
-		return null;
-	}
-
-	/**
-	Placeholder until partner finishes implementation of ProgressInterface
-	 */
-	private ProgressInterfaceMichael getProgress() {
-		return null;
-	}
-
-	private void addButtons() {
-		int numberOfButtons = 6;
-		Color[] buttonColors = {Color.blue, Color.red, Color.yellow, Color.orange, Color.green, Color.pink};
-		int[] xCoors = {350,365,435,450,435,365};
-		int[] yCoors = {300,335,335,300,265,265};
-		for(int i = 0; i < numberOfButtons; i++){
-			final ButtonInterfaceMichael b = getButton();
-			b.setColor(buttonColors[i]);
-			b.setX(xCoors[i]);
-			b.setY(yCoors[i]);
-			b.setAction(new Action(){
-
-				public void act(){
-					if(acceptingInput){
-						Thread blink = new Thread(new Runnable(){
-							public void run(){
+	@Override
+	public void initAllObjects(ArrayList<Visible> viewObjects) {
+		Color[] colors = {Color.red, Color.blue, Color.orange, Color.green, Color.yellow, new Color(180,90,190)};
+		String[] names = {"RED", "BLUE", "ORANGE", "GREEN", "YELLOW", "PURPLE"};
+		int[] xCoors = {325,475,500,475,325,300};
+		int[] yCoors = {225,225,300,375,375,300};
+		int buttonCount = 6;
+		buttons = new ButtonInterfaceMichael[buttonCount];
+		
+		for(int i = 0; i < buttonCount; i++ ){
+			buttons[i] = getAButton();
+			buttons[i].setName(names[i]);
+			buttons[i].setColor(colors[i]);
+			buttons[i].setX(xCoors[i]);
+			buttons[i].setY(yCoors[i]);
+			final ButtonInterfaceMichael b = buttons[i];
+			b.dim();
+			buttons[i].setAction(new Action() {
+				public void act() {
+						Thread blink = new Thread(new Runnable() {
+							public void run() {
 								b.highlight();
 								try {
-									Thread.sleep(800);
+									Thread.sleep(500);
 								} catch (InterruptedException e) {
 									e.printStackTrace();
 								}
 								b.dim();
 							}
-
 						});
 						blink.start();
-
-						if(b == progress.get(sequenceIndex).getButton()){
+						
+						if(acceptingInput && moveList.get(sequenceIndex).getButton() == b){
+							//if correct, next round
 							sequenceIndex++;
-						}else{
-							progress.gameOver();
+						}else if(acceptingInput){
+							gameOver();
+							return;
 						}
-					
-						Thread nextRound = new Thread(SimonScreenMichael.this);
-						nextRound.start();
-						viewObjects.add(b);
+						if(sequenceIndex == moveList.size()){
+							Thread next = new Thread(SimonScreenMichael.this);
+							next.start();
+						}
 					}
-				}
+
 			});
+			viewObjects.add(buttons[i]);
+		}
+		progress = getProgress();
+		viewObjects.add(progress);
+		label = new TextLabel(130,150,300,40,"Lessa go!");
+		viewObjects.add(label);
+		moveList = new ArrayList<MoveInterfaceMichael>();
+		lastButtonSelect = -1;
+		moveList.add(randomMove());
+		moveList.add(randomMove());
+	}
+
+	public void gameOver() {
+		progress.gameOver();
+	}
+
+	public void nextRound() {
+		acceptingInput = false;
+		roundNumber ++;
+		progress.setRound(roundNumber);
+		moveList.add(randomMove());
+		progress.setSequenceLength(moveList.size());
+		changeText("It's my turn. Watch carefully >:)!");
+		label.setText("");
+		showSequence();
+		changeText("Press them buttons!");
+		label.setText("");
+		acceptingInput = true;
+		sequenceIndex = 0;
+	}
+	
+	private void showSequence() {
+		ButtonInterfaceMichael b = null;
+		for(MoveInterfaceMichael m: moveList){
+			if(b!=null){
+				b.dim();
+			}
+			b = m.getButton();
+			b.highlight();
+			try {
+				Thread.sleep((long)(2000*(2.0/(roundNumber+2))));
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+		b.dim();
+	}
+
+	private MoveInterfaceMichael randomMove() {
+		int rand = (int) (Math.random()*buttons.length);
+		while(rand == lastButtonSelect){
+			rand = (int) (Math.random()*buttons.length);
+		}
+		lastButtonSelect = rand;
+		return new Move(buttons[rand]);
+	}
+
+	private ProgressInterfaceMichael getProgress() {
+		return new Progress();
+	}
+
+	private ButtonInterfaceMichael getAButton() {
+		return new Button();
+	}
+
+	private void changeText(String string) {
+		try{
+			label.setText(string);
+			Thread.sleep(1000);
+		}catch(Exception e){
+			e.printStackTrace();
 		}
 	}
 
+	public void run() {
+		changeText("");
+		nextRound();
+	}
 }
